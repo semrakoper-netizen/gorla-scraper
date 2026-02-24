@@ -41,26 +41,35 @@ def raccogli():
         })
 
         if not firebase_admin._apps:
-            # URL senza la barra finale e con configurazione esplicita
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app'
             })
 
-        print("Connessione OK. Prendo le notizie...")
-        res = requests.get("https://comune.gorlaminore.va.it/home")
-        soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = {}
-        for i, a in enumerate(soup.find_all(class_='card-title', limit=10)):
-            notizie[f"news_{i}"] = a.text.strip()
-            print(f"Scaricata: {a.text.strip()}")
-
-        # SCRIVIAMO IN DUE POSTI DIVERSI PER ESSERE SICURI
-        db.reference('/').set({"risultato": notizie, "test": "Sincronizzato!"})
+        # --- PARTE SCRAPER MIGLIORATA ---
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/119.0.0.0 Safari/537.36'}
+        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers, timeout=20)
+        res.raise_for_status() # Controlla se il sito risponde
         
-        print("✅ DATI INVIATI! Ricarica la pagina di Firebase.")
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        # Cerchiamo i titoli in vari modi (più robusto)
+        notizie = {}
+        elementi = soup.select('.card-title, h3, .news-title')
+        
+        for i, el in enumerate(elementi[:10]):
+            titolo = el.get_text(strip=True)
+            if titolo and len(titolo) > 5:
+                notizie[f"news_{i}"] = titolo
+                print(f"Trovata: {titolo}")
+
+        if notizie:
+            db.reference('/').set({"notizie": notizie, "aggiornato": "SÌ"})
+            print("✅ DATI INVIATI CON SUCCESSO!")
+        else:
+            print("⚠️ Nessun titolo trovato, forse il sito ha cambiato struttura.")
 
     except Exception as e:
-        print(f"❌ ERRORE: {e}")
+        print(f"❌ ERRORE SCRAPER: {e}")
 
 if __name__ == "__main__":
     raccogli()
