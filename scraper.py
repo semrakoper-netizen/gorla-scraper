@@ -20,31 +20,40 @@ if not firebase_admin._apps:
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
         except Exception as e:
-            print(f"Errore caricamento JSON: {e}")
+            print(f"Errore caricamento Firebase: {e}")
 
 def raccogli():
-    print("Avvio recupero notizie...")
+    print("Avvio recupero notizie col travestimento...")
     try:
-        res = requests.get("https://comune.gorlaminore.va.it/home")
+        # IL TRAVESTIMENTO: Facciamo finta di essere Google Chrome su un normale PC
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
+        
+        # Controlliamo se il Comune ci fa entrare (Dovrebbe stampare 200)
+        print(f"Risposta dal sito: {res.status_code}")
+        
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # IL NUOVO MIRINO DI PRECISIONE: Cerca esattamente gli h2 con classe 'card-title'
-        articoli = soup.find_all('h2', class_='card-title', limit=10)
+        # MIRINO ALLARGATO: Cerchiamo qualsiasi cosa abbia la classe "card-title"
+        articoli = soup.find_all(class_='card-title', limit=10)
         
         notizie = {}
         for i, art in enumerate(articoli):
             titolo = art.text.strip()
             if titolo:
                 notizie[f"notizia_{i}"] = {"titolo": titolo}
-                print(f"Trovata: {titolo}") # Stampiamo il titolo per vederlo su GitHub
+                print(f"TROVATA: {titolo}") # Lo stampiamo per vederlo
         
         if notizie:
             db.reference('notizie').set(notizie)
-            print("Dati inviati a Firebase con successo!")
+            print("VITTORIA! Dati inviati a Firebase.")
         else:
-            print("Nessuna notizia trovata con il nuovo mirino.")
+            print("Il sito ci fa entrare ma non trova i titoli.")
+            
     except Exception as e:
-        print(f"Errore durante lo scraping: {e}")
+        print(f"Errore: {e}")
 
 if __name__ == "__main__":
     raccogli()
