@@ -3,8 +3,10 @@ from bs4 import BeautifulSoup
 import firebase_admin
 from firebase_admin import credentials, db
 
-# 1. CHIAVE (Copiata e incollata "pulita")
-pk = """-----BEGIN PRIVATE KEY-----
+def raccogli():
+    try:
+        # La tua chiave privata (formato pulito)
+        pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
 tM3RUq6lUjuFFFH2MzLlipM01hBtQkR6wOBCSxhO/Oq0doWUY/efMNIDEwUqvCDL
@@ -33,28 +35,34 @@ NZIfIOmEmu2bo6DdXjF720ALBdh1ugH5gBu6g5/pBhg0skPNNCIMzDwT+G8Ne6hE
 h9VF5uHg6r7OjEa6PROuCSKXmg==
 -----END PRIVATE KEY-----"""
 
-def raccogli():
-    try:
-        # Inizializzazione Firebase
         cred = credentials.Certificate({
             "type": "service_account",
             "project_id": "gorlanews-by-max",
-            "private_key": pk,
+            "private_key": pk.strip(),
             "client_email": "firebase-adminsdk-fbsvc@gorlanews-by-max.iam.gserviceaccount.com",
             "token_uri": "https://oauth2.googleapis.com/token",
         })
-        
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred, {'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'})
 
-        # Scraping notizie
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred, {
+                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
+            })
+
+        # --- AZIONE DI RESET ---
+        # Usiamo .set sulla radice '/' per piallare il 'null'
+        db.reference('/').set({
+            "ultimo_test": "RESET ESEGUITO",
+            "notizie": "In arrivo..."
+        })
+
+        # Recupero notizie reali
         res = requests.get("https://comune.gorlaminore.va.it/home")
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = [a.text.strip() for a in soup.find_all(class_='card-title', limit=10)]
+        notizie_list = [a.text.strip() for a in soup.select('.card-title')[:5]]
         
-        # Scrittura (CANCELLA IL NULL E SCRIVE TUTTO)
-        db.reference('/').set({"notizie_gorla": notizie, "stato": "OK"})
-        print("✅ TUTTO OK!")
+        # Carichiamo le notizie
+        db.reference('/notizie').set(notizie_list)
+        print("✅ DATABASE AGGIORNATO!")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
