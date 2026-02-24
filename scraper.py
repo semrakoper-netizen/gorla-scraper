@@ -3,9 +3,8 @@ from bs4 import BeautifulSoup
 import firebase_admin
 from firebase_admin import credentials, db
 
-def raccogli():
-    try:
-        pk = """-----BEGIN PRIVATE KEY-----
+# 1. CHIAVE (Copiata e incollata "pulita")
+pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
 tM3RUq6lUjuFFFH2MzLlipM01hBtQkR6wOBCSxhO/Oq0doWUY/efMNIDEwUqvCDL
@@ -34,36 +33,28 @@ NZIfIOmEmu2bo6DdXjF720ALBdh1ugH5gBu6g5/pBhg0skPNNCIMzDwT+G8Ne6hE
 h9VF5uHg6r7OjEa6PROuCSKXmg==
 -----END PRIVATE KEY-----"""
 
+def raccogli():
+    try:
+        # Inizializzazione Firebase
         cred = credentials.Certificate({
             "type": "service_account",
             "project_id": "gorlanews-by-max",
-            "private_key": pk.strip(),
+            "private_key": pk,
             "client_email": "firebase-adminsdk-fbsvc@gorlanews-by-max.iam.gserviceaccount.com",
             "token_uri": "https://oauth2.googleapis.com/token",
         })
-
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
-            })
-
-        # --- TEST DI FORZA ---
-        # Sovrascriviamo l'intera radice (/) del database
-        print("Tentativo di scrittura forzata...")
-        db.reference('/').set({
-            "STATO": "FUNZIONA!",
-            "MSG": "Se vedi questo, il database non è più vuoto",
-            "NOTIZIE": "Cerco notizie..."
-        })
-
-        # --- SCRAPING ---
-        res = requests.get("https://comune.gorlaminore.va.it/home", headers={'User-Agent': 'Mozilla/5.0'})
-        soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = [a.text.strip() for a in soup.select('.card-title')[:10]]
         
-        if notizie:
-            db.reference('/NOTIZIE').set(notizie)
-            print("✅ NOTIZIE CARICATE!")
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred, {'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'})
+
+        # Scraping notizie
+        res = requests.get("https://comune.gorlaminore.va.it/home")
+        soup = BeautifulSoup(res.text, 'html.parser')
+        notizie = [a.text.strip() for a in soup.find_all(class_='card-title', limit=10)]
+        
+        # Scrittura (CANCELLA IL NULL E SCRIVE TUTTO)
+        db.reference('/').set({"notizie_gorla": notizie, "stato": "OK"})
+        print("✅ TUTTO OK!")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
