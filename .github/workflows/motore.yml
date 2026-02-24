@@ -22,6 +22,6 @@ jobs:
         run: pip install requests beautifulsoup4 firebase-admin
 
       - name: Esegui lo scraper
-        env:
-          FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }} # <-- QUESTA RIGA È FONDAMENTALE!
-        run: python scraper.py
+      env:
+        FIREBASE_KEY: ${{ secrets.FIREBASE_KEY }}
+      run: python scraper.py
