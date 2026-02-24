@@ -1,25 +1,13 @@
 name: avvia-scraper
-
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 8 * * *' # Parte ogni mattina alle 8
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Scarica il codice
-        uses: actions/checkout@v3
-
-      - name: Installa Python
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          python_python-version: '3.9'
-
-      - name: Installa pacchetti necessari
-        run: |
-          pip install requests beautifulsoup4 firebase-admin
-
-      - name: Esegui lo scraper
-        run: python scraper.py
+          python-version: '3.9'
+      - run: pip install requests beautifulsoup4 firebase-admin
+      - run: python scraper.py
