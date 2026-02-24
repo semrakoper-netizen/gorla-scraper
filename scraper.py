@@ -8,7 +8,7 @@ import os
 
 # 1. Configurazione Firebase
 if not firebase_admin._apps:
-    # GitHub caricherà la chiave segreta che abbiamo messo nei 'Secrets'
+    # Prende la chiave segreta che hai salvato nei "Secrets" di GitHub
     cred_json = os.environ.get('FIREBASE_KEY')
     if cred_json:
         cred_dict = json.loads(cred_json)
@@ -33,37 +33,35 @@ def raccogli_e_salva():
         risposta = requests.get(URL_COMUNE, headers=headers)
         soup = BeautifulSoup(risposta.text, 'html.parser')
         
-        # Cerchiamo le notizie nel sito
+        # Cerchiamo le notizie (adattato alla struttura tipica dei siti comunali)
         articoli = soup.find_all(['article', 'div'], class_=['news', 'Novità', 'card'])
         
         notizie_per_firebase = {}
         
-        for i, art in enumerate(articoli[:10]): # Prendiamo le ultime 10
+        for i, art in enumerate(articoli[:10]):
             titolo_tag = art.find(['h2', 'h3', 'a'])
             if not titolo_tag: continue
             
             titolo = titolo_tag.text.strip()
-            # Puliamo il titolo se è troppo lungo
-            titolo = (titolo[:75] + '..') if len(titolo) > 75 else titolo
-            
             img_tag = art.find('img')
             img_url = img_tag.get('src') if img_tag else scegli_immagine_di_riserva(titolo)
+            
+            # Sistemiamo il link dell'immagine se è relativo
             if img_url and img_url.startswith('/'):
                 img_url = "https://comune.gorlaminore.va.it" + img_url
             
             data = datetime.datetime.now().strftime("%d/%m/%Y")
             
-            # Creiamo un ID unico per la notizia basato sul numero
             notizie_per_firebase[f"notizia_{i}"] = {
                 "titolo": titolo,
                 "data": data,
                 "immagineUrl": img_url
             }
 
-        # Salviamo tutto su Firebase sovrascrivendo le vecchie (così l'app è sempre aggiornata)
+        # Carichiamo i dati su Firebase
         ref = db.reference('notizie')
         ref.set(notizie_per_firebase)
-        print("✅ Notizie caricate con successo su Firebase!")
+        print("✅ Notizie inviate a Firebase!")
 
     except Exception as e:
         print(f"❌ Errore: {e}")
