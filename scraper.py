@@ -5,7 +5,6 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # La tua chiave (formato solido)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -48,30 +47,23 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        # Test immediato: scriviamo che siamo connessi
-        db.reference('/connessione').set("OK - In attesa di notizie")
+        # --- TEST DI SCRITTURA IMMEDIATA ---
+        print("Inviando segnale di test...")
+        db.reference('/STATO_CONNESSIONE').set("FUNZIONA!")
 
-        # Scraping con "identità umana" (User-Agent)
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        url_comune = "https://comune.gorlaminore.va.it/home"
+        # --- SCRAPING ---
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
+        soup = BeautifulSoup(res.text, 'html.parser')
         
-        response = requests.get(url_comune, headers=headers, timeout=30)
-        soup = BeautifulSoup(response.text, 'html.parser')
+        articoli = soup.find_all(['h3', 'h4', '.card-title'])
+        notizie = {f"notizia_{i}": a.get_text(strip=True) for i, a in enumerate(articoli[:10]) if len(a.get_text()) > 5}
         
-        notizie = {}
-        # Cerchiamo tutti i titoli che solitamente sono in classe 'card-title' o 'h3'
-        articoli = soup.find_all(['h3', 'h4'], limit=10)
-        
-        for i, art in enumerate(articoli):
-            testo = art.get_text(strip=True)
-            if len(testo) > 5: # Evitiamo scritte troppo corte
-                notizie[f"notizia_{i}"] = testo
-
         if notizie:
-            db.reference('/notizie_comune').set(notizie)
-            print("✅ DATI INVIATI!")
+            db.reference('/notizie_vere').set(notizie)
+            print(f"Inviate {len(notizie)} notizie.")
         else:
-            print("⚠️ Connesso ma nessuna notizia trovata.")
+            print("Nessuna notizia trovata sul sito.")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
