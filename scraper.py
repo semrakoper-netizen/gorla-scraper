@@ -47,23 +47,21 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        # --- TEST DI SCRITTURA IMMEDIATA ---
-        print("Inviando segnale di test...")
-        db.reference('/STATO_CONNESSIONE').set("FUNZIONA!")
+        # --- TEST 1: SCRITTURA DIRETTA ---
+        print("Scrittura test...")
+        db.reference('/test_connessione').set("VEDI QUESTA SCRITTA?")
 
         # --- SCRAPING ---
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
+        res = requests.get("https://comune.gorlaminore.va.it/home", timeout=20)
         soup = BeautifulSoup(res.text, 'html.parser')
+        notizie = {f"n_{i}": a.get_text(strip=True) for i, a in enumerate(soup.select('h3, h4, .card-title')[:5])}
         
-        articoli = soup.find_all(['h3', 'h4', '.card-title'])
-        notizie = {f"notizia_{i}": a.get_text(strip=True) for i, a in enumerate(articoli[:10]) if len(a.get_text()) > 5}
-        
+        # --- TEST 2: SCRITTURA DATI ---
         if notizie:
-            db.reference('/notizie_vere').set(notizie)
-            print(f"Inviate {len(notizie)} notizie.")
+            db.reference('/notizie').set(notizie)
+            print("✅ Dati inviati!")
         else:
-            print("Nessuna notizia trovata sul sito.")
+            print("Nessuna notizia trovata.")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
