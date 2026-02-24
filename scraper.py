@@ -5,6 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
+        # Incolla la tua chiave tra le triple virgolette, senza lasciare spazi vuoti prima
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -37,35 +38,24 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
         cred = credentials.Certificate({
             "type": "service_account",
             "project_id": "gorlanews-by-max",
-            "private_key": pk,
+            "private_key": pk.strip(),
             "client_email": "firebase-adminsdk-fbsvc@gorlanews-by-max.iam.gserviceaccount.com",
             "token_uri": "https://oauth2.googleapis.com/token",
         })
 
         if not firebase_admin._apps:
-            # USIAMO L'URL CHE MI HAI DATO, SENZA BARRA FINALE PER SICUREZZA
+            # URL preso direttamente dalla tua immagine
             firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app'
+                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        # --- AZIONE DI FORZA ---
-        # Scriviamo un oggetto che occupa tutta la radice del database
-        ref = db.reference('/')
-        ref.set({
-            "successo": "Sì, sono connesso!",
-            "notizie_comune": "Caricamento in corso..."
-        })
-
-        # --- SCRAPING ---
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
+        res = requests.get("https://comune.gorlaminore.va.it/home", headers={'User-Agent': 'Mozilla/5.0'})
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = [a.get_text(strip=True) for a in soup.select('.card-title')[:10]]
+        notizie = {f"n_{i}": a.text.strip() for i, a in enumerate(soup.select('.card-title')[:10])}
         
-        # Aggiorniamo i dati
-        if notizie:
-            ref.update({"notizie_comune": notizie})
-            print("✅ DATI INVIATI!")
+        # Scriviamo i dati!
+        db.reference('/').set({"notizie": notizie, "stato": "Online"})
+        print("✅ INVIATO!")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
