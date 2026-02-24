@@ -1,0 +1,25 @@
+name: Motore GorlaNews
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Si attiva automaticamente ogni ora
+  workflow_dispatch: # Ci permette di avviarlo manualmente con un clic
+
+jobs:
+  avvia-scraper:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Scarica i file del magazzino
+        uses: actions/checkout@v4
+
+      - name: Prepara Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Installa gli strumenti
+        run: pip install requests beautifulsoup4
+
+      - name: Esegui il cervello
+        run: python scraper.py
