@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # La tua chiave privata (formato pulito)
+        # La tua chiave privata
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -49,20 +49,23 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
             })
 
         # --- AZIONE DI RESET ---
-        # Usiamo .set sulla radice '/' per piallare il 'null'
+        # Scriviamo direttamente sulla radice (/) per eliminare il null
         db.reference('/').set({
-            "ultimo_test": "RESET ESEGUITO",
-            "notizie": "In arrivo..."
+            "STATO": "INIZIALIZZATO",
+            "INFO": "Database pronto per le notizie"
         })
 
-        # Recupero notizie reali
-        res = requests.get("https://comune.gorlaminore.va.it/home")
+        # Recupero notizie vere
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie_list = [a.text.strip() for a in soup.select('.card-title')[:5]]
+        notizie = [a.text.strip() for a in soup.select('.card-title')[:10] if len(a.text.strip()) > 5]
         
-        # Carichiamo le notizie
-        db.reference('/notizie').set(notizie_list)
-        print("✅ DATABASE AGGIORNATO!")
+        if notizie:
+            db.reference('/notizie_gorla').set(notizie)
+            print("✅ DATI INVIATI!")
+        else:
+            print("⚠️ Nessuna notizia trovata, ma connessione Firebase OK.")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
