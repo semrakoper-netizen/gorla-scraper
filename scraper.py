@@ -5,38 +5,38 @@ import firebase_admin
 from firebase_admin import credentials, db
 import os
 
-# Configurazione Firebase
-if not firebase_admin._apps:
+def inizializza_firebase():
+    print("Tentativo di inizializzazione Firebase...")
     cred_json = os.environ.get('FIREBASE_KEY')
-    if cred_json:
-        cred_json = cred_json.strip()
-        try:
-            cred_dict = json.loads(cred_json)
-            if "private_key" in cred_dict:
-                cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
-            
-            cred = credentials.Certificate(cred_dict)
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
-            })
-        except Exception as e:
-            print(f"Errore caricamento Firebase: {e}")
+    
+    if not cred_json:
+        print("ERRORE CRITICO: La chiave FIREBASE_KEY è vuota o non trovata nei Secrets di GitHub!")
+        return False
+
+    try:
+        # Pulizia della chiave per evitare errori di formattazione
+        cred_dict = json.loads(cred_json.strip())
+        if "private_key" in cred_dict:
+            cred_dict["private_key"] = cred_dict["private_key"].replace("\\n", "\n")
+        
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
+        })
+        print("Firebase inizializzato correttamente!")
+        return True
+    except Exception as e:
+        print(f"Errore durante l'inizializzazione: {e}")
+        return False
 
 def raccogli():
-    print("Avvio recupero notizie col travestimento...")
+    if not inizializza_firebase():
+        return
+
     try:
-        # IL TRAVESTIMENTO: Facciamo finta di essere Google Chrome su un normale PC
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        }
+        headers = {'User-Agent': 'Mozilla/5.0'}
         res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
-        
-        # Controlliamo se il Comune ci fa entrare (Dovrebbe stampare 200)
-        print(f"Risposta dal sito: {res.status_code}")
-        
         soup = BeautifulSoup(res.text, 'html.parser')
-        
-        # MIRINO ALLARGATO: Cerchiamo qualsiasi cosa abbia la classe "card-title"
         articoli = soup.find_all(class_='card-title', limit=10)
         
         notizie = {}
@@ -44,16 +44,15 @@ def raccogli():
             titolo = art.text.strip()
             if titolo:
                 notizie[f"notizia_{i}"] = {"titolo": titolo}
-                print(f"TROVATA: {titolo}") # Lo stampiamo per vederlo
+                print(f"Trovata: {titolo}")
         
         if notizie:
             db.reference('notizie').set(notizie)
-            print("VITTORIA! Dati inviati a Firebase.")
+            print("DATI INVIATI A FIREBASE!")
         else:
-            print("Il sito ci fa entrare ma non trova i titoli.")
-            
+            print("Nessuna notizia trovata sul sito.")
     except Exception as e:
-        print(f"Errore: {e}")
+        print(f"Errore durante lo scraping: {e}")
 
 if __name__ == "__main__":
     raccogli()
