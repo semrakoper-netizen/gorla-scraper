@@ -5,7 +5,6 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # La tua chiave (formato tripla virgoletta che ha funzionato)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -44,27 +43,29 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
         })
 
         if not firebase_admin._apps:
+            # USIAMO L'URL CHE MI HAI DATO, SENZA BARRA FINALE PER SICUREZZA
             firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
+                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app'
             })
 
-        # --- AZIONE FORZATA ---
-        print("Scrittura forzata su Firebase...")
-        # Scriviamo direttamente nella radice (/) 
-        db.reference('/').set({
-            "STATO": "CONNESSO!",
-            "AVVISO": "Se vedi questo, il ponte funziona!"
+        # --- AZIONE DI FORZA ---
+        # Scriviamo un oggetto che occupa tutta la radice del database
+        ref = db.reference('/')
+        ref.set({
+            "successo": "Sì, sono connesso!",
+            "notizie_comune": "Caricamento in corso..."
         })
 
         # --- SCRAPING ---
         headers = {'User-Agent': 'Mozilla/5.0'}
         res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = {f"n_{i}": a.get_text(strip=True) for i, a in enumerate(soup.select('.card-title')[:10])}
+        notizie = [a.get_text(strip=True) for a in soup.select('.card-title')[:10]]
         
+        # Aggiorniamo i dati
         if notizie:
-            db.reference('/notizie_gorla').update(notizie)
-            print("✅ NOTIZIE INVIATE!")
+            ref.update({"notizie_comune": notizie})
+            print("✅ DATI INVIATI!")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
