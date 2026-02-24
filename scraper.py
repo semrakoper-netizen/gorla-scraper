@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # Questo formato con le triple virgolette non può sbagliare gli "a capo"
+        # La chiave con le triple virgolette (quella che ha funzionato)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -44,22 +44,18 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
         })
 
         if not firebase_admin._apps:
+            # L'indirizzo che hai copiato, pulito e preciso
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        res = requests.get("https://comune.gorlaminore.va.it/home", timeout=20)
+        print("Connessione OK. Scarico i titoli...")
+        res = requests.get("https://comune.gorlaminore.va.it/home")
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = {f"n_{i}": a.text.strip() for i, a in enumerate(soup.find_all(class_='card-title', limit=10))}
         
-        if notizie:
-            db.reference('/').set({"news": notizie, "test": "OK"})
-            print("✅ CE L'ABBIAMO FATTA!")
-        else:
-            print("⚠️ Nessuna notizia trovata, ma connesso!")
-
-    except Exception as e:
-        print(f"❌ ERRORE: {e}")
-
-if __name__ == "__main__":
-    raccogli()
+        # Prendiamo i titoli e mettiamoli in un dizionario
+        notizie = {}
+        for i, a in enumerate(soup.find_all(class_='card-title', limit=10)):
+            notizie[f"notizia_{i}"] = a.text.strip()
+        
+        # Scriviamo TUTTO nella radice
