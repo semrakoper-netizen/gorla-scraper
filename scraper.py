@@ -2,86 +2,71 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import datetime
+import firebase_admin
+from firebase_admin import credentials, db
+import os
 
-# L'indirizzo del sito del Comune
+# 1. Configurazione Firebase
+if not firebase_admin._apps:
+    # GitHub caricherà la chiave segreta che abbiamo messo nei 'Secrets'
+    cred_json = os.environ.get('FIREBASE_KEY')
+    if cred_json:
+        cred_dict = json.loads(cred_json)
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app'
+        })
+
 URL_COMUNE = "https://comune.gorlaminore.va.it/home"
 
 def scegli_immagine_di_riserva(titolo):
-    """Sceglie un'immagine coerente se il comune non ne mette una"""
-    titolo_lower = titolo.lower()
-    if "scuola" in titolo_lower or "nido" in titolo_lower or "mensa" in titolo_lower:
-        return "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=500&q=80" # Foto scuola
-    elif "strada" in titolo_lower or "viabilità" in titolo_lower or "lavori" in titolo_lower:
-        return "https://images.unsplash.com/photo-1584852955931-15858fc929c4?w=500&q=80" # Foto lavori stradali
-    elif "rifiuti" in titolo_lower or "sacco" in titolo_lower:
-        return "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?w=500&q=80" # Foto ambiente/riciclo
-    elif "sociali" in titolo_lower or "contributi" in titolo_lower:
-        return "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=500&q=80" # Foto persone/sociale
-    else:
-        # Foto generica del municipio o paese per tutte le altre notizie
-        return "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=500&q=80" 
+    t = titolo.lower()
+    if "scuola" in t: return "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400"
+    if "strada" in t or "lavori" in t: return "https://images.unsplash.com/photo-1584852955931-15858fc929c4?w=400"
+    return "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400"
 
-def raccogli_notizie():
-    print("Avvio ricerca notizie sul sito di Gorla Minore...")
-    
-    # Fingiamo di essere un browser normale per non farci bloccare dal sito
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+def raccogli_e_salva():
+    print("Avvio ricerca notizie...")
+    headers = {'User-Agent': 'Mozilla/5.0'}
     
     try:
         risposta = requests.get(URL_COMUNE, headers=headers)
         soup = BeautifulSoup(risposta.text, 'html.parser')
         
-        notizie_trovate = []
+        # Cerchiamo le notizie nel sito
+        articoli = soup.find_all(['article', 'div'], class_=['news', 'Novità', 'card'])
         
-        # Il sito del comune raggruppa le notizie in blocchi chiamati "Novità" o simili
-        # (Questo è un selettore generico, lo perfezioneremo se il sito ha strutture diverse)
-        articoli = soup.find_all('div', class_='Novità') 
+        notizie_per_firebase = {}
         
-        # Se non trova 'Novità', proviamo a cercare i tag generici degli articoli
-        if not articoli:
-            articoli = soup.find_all('article')
+        for i, art in enumerate(articoli[:10]): # Prendiamo le ultime 10
+            titolo_tag = art.find(['h2', 'h3', 'a'])
+            if not titolo_tag: continue
             
-        for articolo in articoli[:5]: # Prendiamo le ultime 5 notizie
+            titolo = titolo_tag.text.strip()
+            # Puliamo il titolo se è troppo lungo
+            titolo = (titolo[:75] + '..') if len(titolo) > 75 else titolo
             
-            # 1. Trova il Titolo
-            titolo_tag = articolo.find(['h2', 'h3', 'a'])
-            titolo = titolo_tag.text.strip() if titolo_tag else "Titolo non trovato"
+            img_tag = art.find('img')
+            img_url = img_tag.get('src') if img_tag else scegli_immagine_di_riserva(titolo)
+            if img_url and img_url.startswith('/'):
+                img_url = "https://comune.gorlaminore.va.it" + img_url
             
-            # 2. Trova la Data (cerca un tag temporale)
-            data_tag = articolo.find('time')
-            if data_tag:
-                data = data_tag.text.strip()
-            else:
-                data = datetime.datetime.now().strftime("%d %B %Y")
-                
-            # 3. Trova l'Immagine (se esiste) o usa quella di riserva
-            img_tag = articolo.find('img')
-            if img_tag and img_tag.get('src'):
-                immagine = img_tag.get('src')
-                # Aggiusta il link se è "rotto" (relativo)
-                if immagine.startswith('/'):
-                    immagine = "https://comune.gorlaminore.va.it" + immagine
-            else:
-                immagine = scegli_immagine_di_riserva(titolo)
-                
-            # Creiamo il "pacchetto" della notizia
-            notizia = {
+            data = datetime.datetime.now().strftime("%d/%m/%Y")
+            
+            # Creiamo un ID unico per la notizia basato sul numero
+            notizie_per_firebase[f"notizia_{i}"] = {
                 "titolo": titolo,
                 "data": data,
-                "immagineUrl": immagine
+                "immagineUrl": img_url
             }
-            notizie_trovate.append(notizia)
-            
-        print(f"Trovate {len(notizie_trovate)} notizie!")
-        for n in notizie_trovate:
-            print(f"- {n['titolo']}")
-            
-        return notizie_trovate
+
+        # Salviamo tutto su Firebase sovrascrivendo le vecchie (così l'app è sempre aggiornata)
+        ref = db.reference('notizie')
+        ref.set(notizie_per_firebase)
+        print("✅ Notizie caricate con successo su Firebase!")
 
     except Exception as e:
-        print(f"Errore durante la lettura del sito: {e}")
-        return []
+        print(f"❌ Errore: {e}")
 
-# Avvia la funzione
 if __name__ == "__main__":
-    raccogli_notizie()
+    raccogli_e_salva()
