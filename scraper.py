@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # La chiave con le triple virgolette (quella che ha funzionato)
+        # La tua chiave (formato solido)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -44,18 +44,37 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
         })
 
         if not firebase_admin._apps:
-            # L'indirizzo che hai copiato, pulito e preciso
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        print("Connessione OK. Scarico i titoli...")
-        res = requests.get("https://comune.gorlaminore.va.it/home")
-        soup = BeautifulSoup(res.text, 'html.parser')
+        # Test immediato: scriviamo che siamo connessi
+        db.reference('/connessione').set("OK - In attesa di notizie")
+
+        # Scraping con "identità umana" (User-Agent)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        url_comune = "https://comune.gorlaminore.va.it/home"
         
-        # Prendiamo i titoli e mettiamoli in un dizionario
+        response = requests.get(url_comune, headers=headers, timeout=30)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
         notizie = {}
-        for i, a in enumerate(soup.find_all(class_='card-title', limit=10)):
-            notizie[f"notizia_{i}"] = a.text.strip()
+        # Cerchiamo tutti i titoli che solitamente sono in classe 'card-title' o 'h3'
+        articoli = soup.find_all(['h3', 'h4'], limit=10)
         
-        # Scriviamo TUTTO nella radice
+        for i, art in enumerate(articoli):
+            testo = art.get_text(strip=True)
+            if len(testo) > 5: # Evitiamo scritte troppo corte
+                notizie[f"notizia_{i}"] = testo
+
+        if notizie:
+            db.reference('/notizie_comune').set(notizie)
+            print("✅ DATI INVIATI!")
+        else:
+            print("⚠️ Connesso ma nessuna notizia trovata.")
+
+    except Exception as e:
+        print(f"❌ ERRORE: {e}")
+
+if __name__ == "__main__":
+    raccogli()
