@@ -5,6 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
+        # La tua chiave (formato tripla virgoletta che ha funzionato)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -47,24 +48,23 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        # --- TEST DI SCRITTURA FORZATA ---
-        print("Scrivo il segnale di test...")
-        db.reference('/').set({"messaggio": "ARRIVATO!", "news": "Caricamento..."})
+        # --- AZIONE FORZATA ---
+        print("Scrittura forzata su Firebase...")
+        # Scriviamo direttamente nella radice (/) 
+        db.reference('/').set({
+            "STATO": "CONNESSO!",
+            "AVVISO": "Se vedi questo, il ponte funziona!"
+        })
 
-        # --- RECUPERO NOTIZIE ---
+        # --- SCRAPING ---
         headers = {'User-Agent': 'Mozilla/5.0'}
         res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
         soup = BeautifulSoup(res.text, 'html.parser')
-        
-        # Cerchiamo tutti i titoli possibili
-        articoli = soup.select('.card-title, h3, h4')
-        notizie = {f"n_{i}": a.get_text(strip=True) for i, a in enumerate(articoli[:10]) if len(a.get_text()) > 5}
+        notizie = {f"n_{i}": a.get_text(strip=True) for i, a in enumerate(soup.select('.card-title')[:10])}
         
         if notizie:
-            db.reference('/notizie').set(notizie)
+            db.reference('/notizie_gorla').update(notizie)
             print("✅ NOTIZIE INVIATE!")
-        else:
-            print("⚠️ Connesso, ma non ho trovato titoli sul sito.")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
