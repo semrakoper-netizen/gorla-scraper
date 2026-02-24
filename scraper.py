@@ -1,11 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
 import firebase_admin
 from firebase_admin import credentials, db
 
-def raccogli():
+def test_finale():
     try:
-        # La tua chiave (formato ultracompatto)
+        # La tua chiave (lasciala così com'è se è quella che dà il pallino verde)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -36,33 +34,3 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
 -----END PRIVATE KEY-----"""
 
         cred = credentials.Certificate({
-            "type": "service_account",
-            "project_id": "gorlanews-by-max",
-            "private_key": pk,
-            "client_email": "firebase-adminsdk-fbsvc@gorlanews-by-max.iam.gserviceaccount.com",
-            "token_uri": "https://oauth2.googleapis.com/token",
-        })
-
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred, {
-                'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
-            })
-
-        # --- TEST 1: SCRITTURA DIRETTA NELLA RADICE ---
-        print("Provo a scrivere nella radice...")
-        db.reference('/').set({"risultato": "CE L'HAI FATTA!"})
-
-        # --- TEST 2: NOTIZIE ---
-        res = requests.get("https://comune.gorlaminore.va.it/home", timeout=20)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = [a.text.strip() for a in soup.find_all(class_='card-title', limit=10)]
-        
-        if notizie:
-            db.reference('/notizie').set(notizie)
-            print("Notizie caricate!")
-
-    except Exception as e:
-        print(f"Errore: {e}")
-
-if __name__ == "__main__":
-    raccogli()
