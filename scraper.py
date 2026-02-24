@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # La tua chiave privata
+        # La tua chiave (formato ultracompatto)
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -38,7 +38,7 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
         cred = credentials.Certificate({
             "type": "service_account",
             "project_id": "gorlanews-by-max",
-            "private_key": pk.strip(),
+            "private_key": pk,
             "client_email": "firebase-adminsdk-fbsvc@gorlanews-by-max.iam.gserviceaccount.com",
             "token_uri": "https://oauth2.googleapis.com/token",
         })
@@ -48,27 +48,21 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        # --- AZIONE DI RESET ---
-        # Scriviamo direttamente sulla radice (/) per eliminare il null
-        db.reference('/').set({
-            "STATO": "INIZIALIZZATO",
-            "INFO": "Database pronto per le notizie"
-        })
+        # --- TEST 1: SCRITTURA DIRETTA NELLA RADICE ---
+        print("Provo a scrivere nella radice...")
+        db.reference('/').set({"risultato": "CE L'HAI FATTA!"})
 
-        # Recupero notizie vere
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get("https://comune.gorlaminore.va.it/home", headers=headers)
+        # --- TEST 2: NOTIZIE ---
+        res = requests.get("https://comune.gorlaminore.va.it/home", timeout=20)
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = [a.text.strip() for a in soup.select('.card-title')[:10] if len(a.text.strip()) > 5]
+        notizie = [a.text.strip() for a in soup.find_all(class_='card-title', limit=10)]
         
         if notizie:
-            db.reference('/notizie_gorla').set(notizie)
-            print("✅ DATI INVIATI!")
-        else:
-            print("⚠️ Nessuna notizia trovata, ma connessione Firebase OK.")
+            db.reference('/notizie').set(notizie)
+            print("Notizie caricate!")
 
     except Exception as e:
-        print(f"❌ ERRORE: {e}")
+        print(f"Errore: {e}")
 
 if __name__ == "__main__":
     raccogli()
