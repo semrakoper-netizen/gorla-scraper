@@ -5,7 +5,6 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # Incolla la tua chiave tra le triple virgolette, senza lasciare spazi vuoti prima
         pk = """-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq
 QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW
@@ -44,18 +43,27 @@ h9VF5uHg6r7OjEa6PROuCSKXmg==
         })
 
         if not firebase_admin._apps:
-            # URL preso direttamente dalla tua immagine
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
+        # --- TEST DI FORZA ---
+        # Sovrascriviamo l'intera radice (/) del database
+        print("Tentativo di scrittura forzata...")
+        db.reference('/').set({
+            "STATO": "FUNZIONA!",
+            "MSG": "Se vedi questo, il database non è più vuoto",
+            "NOTIZIE": "Cerco notizie..."
+        })
+
+        # --- SCRAPING ---
         res = requests.get("https://comune.gorlaminore.va.it/home", headers={'User-Agent': 'Mozilla/5.0'})
         soup = BeautifulSoup(res.text, 'html.parser')
-        notizie = {f"n_{i}": a.text.strip() for i, a in enumerate(soup.select('.card-title')[:10])}
+        notizie = [a.text.strip() for a in soup.select('.card-title')[:10]]
         
-        # Scriviamo i dati!
-        db.reference('/').set({"notizie": notizie, "stato": "Online"})
-        print("✅ INVIATO!")
+        if notizie:
+            db.reference('/NOTIZIE').set(notizie)
+            print("✅ NOTIZIE CARICATE!")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
