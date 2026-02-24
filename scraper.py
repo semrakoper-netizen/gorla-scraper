@@ -5,7 +5,7 @@ from firebase_admin import credentials, db
 
 def raccogli():
     try:
-        # La tua chiave privata (fissa nel codice per sicurezza)
+        # Inseriamo la chiave direttamente qui per evitare errori di GitHub
         pk = ("-----BEGIN PRIVATE KEY-----\n"
               "MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDarKfHsUJ2FLGq\n"
               "QWbi9X8WnpDwi489oqJ9Kj1cjdordZd7S81eqT8jr6IxkAH/HFEtRG1N+64hzoSW\n"
@@ -33,7 +33,7 @@ def raccogli():
               "NZIfIOmEmu2bo6DdXjF720ALBdh1ugH5gBu6g5/pBhg0skPNNCIMzDwT+G8Ne6hE\nh9VF5uHg6r7OjEa6PROuCSKXmg==\n"
               "-----END PRIVATE KEY-----\n")
 
-        # Configurazione credenziali
+        # Configurazione manuale senza usare i Secrets di GitHub
         cred = credentials.Certificate({
             "type": "service_account",
             "project_id": "gorlanews-by-max",
@@ -42,33 +42,22 @@ def raccogli():
             "token_uri": "https://oauth2.googleapis.com/token",
         })
 
-        # Inizializzazione con l'URL che mi hai fornito
         if not firebase_admin._apps:
             firebase_admin.initialize_app(cred, {
                 'databaseURL': 'https://gorlanews-by-max-default-rtdb.europe-west1.firebasedatabase.app/'
             })
 
-        print("Connessione stabilita. Recupero notizie...")
-        
-        # Scraping notizie dal sito del comune
+        # Recupero le notizie dal sito
         res = requests.get("https://comune.gorlaminore.va.it/home")
         soup = BeautifulSoup(res.text, 'html.parser')
+        notizie = {f"notizia_{i}": a.text.strip() for i, a in enumerate(soup.find_all(class_='card-title', limit=10))}
         
-        notizie_list = []
-        for art in soup.find_all(class_='card-title', limit=10):
-            testo = art.text.strip()
-            if testo:
-                notizie_list.append(testo)
-        
-        # Invio dati a Firebase (scriviamo tutto in un colpo solo)
-        db.reference('/').set({
-            "notizie_comune": notizie_list,
-            "stato": "Aggiornato con successo!"
-        })
-        
-        print("✅ DATI INVIATI! Ora controlla Firebase.")
+        # Scrittura nel database
+        db.reference('notizie').set(notizie)
+        print("✅ SUCCESSO! Dati inviati a Firebase.")
 
     except Exception as e:
         print(f"❌ ERRORE: {e}")
 
 if __name__ == "__main__":
+    raccogli()
